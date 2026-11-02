@@ -102,7 +102,7 @@
     <!-- BARRA DE STATUS DE PAGAMENTO PARA O CLIENTE -->
     <div id="client-status-banner" class="hidden bg-emerald-900/90 border-b border-emerald-600 px-4 py-2 text-center text-xs text-emerald-100 flex items-center justify-center gap-2 sticky top-[105px] z-30 shadow-md">
         <i class="fa-solid fa-circle-check text-emerald-400 animate-pulse text-sm"></i>
-        <span><strong>Status do seu Anúncio:</strong> Ativo na vitrine por 30 dias! Aguardando confirmação do Pix enviado pelo WhatsApp.</span>
+        <span><strong>Status do seu Anúncio:</strong> Ativo na vitrine por 30 dias! Lembre-se de enviar o comprovante Pix no WhatsApp.</span>
         <button onclick="document.getElementById('client-status-banner').classList.add('hidden')" class="ml-3 text-emerald-300 hover:text-white font-bold">&times;</button>
     </div>
 
@@ -144,7 +144,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <img id="zoom-img-src" src="" class="max-w-full max-h-[80vh] object-contain rounded-lg border border-slate-700 shadow-2xl cursor-zoom-out" onclick="closeZoom()">
-            <p class="text-xs text-slate-400 mt-2">Clique na imagem para fechar</p>
+            <p class="text-xs text-slate-400 mt-2">Toque na imagem para fechar</p>
         </div>
     </div>
 
@@ -370,7 +370,7 @@
         let settings = {
             pixKey: 'pix@vitrinelocalbrasil.com.br',
             adminPass: 'Everaldo43991985',
-            adminWhatsApp: '5519999999999' // <-- SEU WHATSAPP AQUI (ex: 5519988887777)
+            adminWhatsApp: '5519989698007'
         };
         let activeCadastro = null;
         let deferredPrompt = null;
@@ -428,7 +428,6 @@
             localStorage.setItem('vitrine_brasil_announcements', JSON.stringify(announcements));
         }
 
-        // Função de Zoom de Imagem
         function openZoom(imgUrl) {
             if (!imgUrl) return;
             document.getElementById('zoom-img-src').src = imgUrl;
@@ -437,6 +436,24 @@
 
         function closeZoom() {
             document.getElementById('modal-zoom').classList.add('hidden');
+        }
+
+        // FUNÇÃO ROBUSTA DE REDIRECIONAMENTO AO WHATSAPP (Evita bloqueios em PWAs/Mobile)
+        function openWhatsApp(rawPhone, customMessage) {
+            if (!rawPhone) return;
+            let cleanPhone = String(rawPhone).replace(/\D/g, '');
+            if (!cleanPhone.startsWith('55') && cleanPhone.length <= 11) {
+                cleanPhone = '55' + cleanPhone;
+            }
+            
+            const messageEncoded = encodeURIComponent(customMessage || 'Olá! Gostaria de mais informações sobre o anúncio.');
+            const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${messageEncoded}`;
+            
+            // Abre de forma segura garantindo compatibilidade com WebView e PWA
+            const win = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!win) {
+                window.location.href = url;
+            }
         }
 
         function renderAnnouncements() {
@@ -464,7 +481,9 @@
 
             document.getElementById('container-destaque').innerHTML = destaques.length === 0 ? 
                 `<div class="col-span-full bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 text-center text-xs text-slate-400">Nenhum destaque encontrado.</div>` :
-                destaques.map(item => `
+                destaques.map(item => {
+                    const msg = `Olá! Vi o anúncio da ${item.name} no Vitrine Local Brasil e gostaria de mais informações.`;
+                    return `
                     <div class="bg-slate-800 rounded-xl border-2 border-amber-500/50 p-4 relative shadow-xl flex flex-col justify-between">
                         <div>
                             <div class="absolute top-0 right-0 badge-destaque text-slate-950 font-bold text-[10px] uppercase px-3 py-0.5 rounded-bl-lg tracking-wider flex items-center gap-1 z-10">
@@ -472,7 +491,7 @@
                             </div>
                             
                             <div class="grid grid-cols-2 gap-2 mb-3">
-                                ${item.image1Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image1Url}')"><span class="text-[9px] text-slate-400 block mb-1 group-hover:text-blue-400 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Visual da Loja (Zoom)</span><img src="${item.image1Url}" class="w-full h-32 object-cover rounded-lg border border-slate-700 group-hover:border-blue-500 transition"></div>` : ''}
+                                ${item.image1Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image1Url}')"><span class="text-[9px] text-slate-400 block mb-1 group-hover:text-blue-400 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Loja (Zoom)</span><img src="${item.image1Url}" class="w-full h-32 object-cover rounded-lg border border-slate-700 group-hover:border-blue-500 transition"></div>` : ''}
                                 ${item.image2Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image2Url}')"><span class="text-[9px] text-amber-400 block mb-1 group-hover:text-amber-300 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Propaganda (Zoom)</span><img src="${item.image2Url}" class="w-full h-32 object-cover rounded-lg border border-slate-700 group-hover:border-amber-500 transition"></div>` : ''}
                             </div>
 
@@ -481,16 +500,18 @@
                             <p class="text-xs text-slate-400"><i class="fa-solid fa-location-dot"></i> ${item.address}</p>
                             <p class="text-xs text-slate-300 my-2">${item.description}</p>
                         </div>
-                        <a href="https://wa.me/55${item.phone.replace(/\D/g,'')}?text=Olá,%20vi%20seu%20anúncio%20no%20Vitrine%20Local!" target="_blank" 
-                           class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 mt-3 transition">
+                        <button onclick="openWhatsApp('${item.phone}', '${msg.replace(/'/g, "\\'")}')" 
+                           class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 mt-3 transition shadow-md cursor-pointer">
                             <i class="fa-brands fa-whatsapp text-sm"></i> Chamar no WhatsApp
-                        </a>
+                        </button>
                     </div>
-                `).join('');
+                `;}).join('');
 
             document.getElementById('container-geral').innerHTML = gerais.length === 0 ? 
                 `<div class="col-span-full bg-slate-800/40 border border-slate-700/50 rounded-xl p-8 text-center text-xs text-slate-400">Nenhum anúncio encontrado.</div>` :
-                gerais.map(item => `
+                gerais.map(item => {
+                    const msg = `Olá! Vi o anúncio da ${item.name} no Vitrine Local Brasil e gostaria de mais informações.`;
+                    return `
                     <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col justify-between">
                         <div>
                             <div class="grid grid-cols-2 gap-2 mb-2">
@@ -506,12 +527,12 @@
                             <p class="text-xs text-slate-400"><i class="fa-solid fa-location-dot"></i> ${item.address}</p>
                             <p class="text-xs text-slate-300 my-2">${item.description}</p>
                         </div>
-                        <a href="https://wa.me/55${item.phone.replace(/\D/g,'')}?text=Olá,%20vi%20seu%20anúncio%20no%20Vitrine%20Local!" target="_blank" 
-                           class="w-full bg-slate-700 hover:bg-emerald-600 text-slate-200 hover:text-white font-semibold py-1.5 rounded text-xs flex items-center justify-center gap-1.5 mt-2 transition">
+                        <button onclick="openWhatsApp('${item.phone}', '${msg.replace(/'/g, "\\'")}')" 
+                           class="w-full bg-slate-700 hover:bg-emerald-600 text-slate-200 hover:text-white font-semibold py-1.5 rounded text-xs flex items-center justify-center gap-1.5 mt-2 transition cursor-pointer">
                             <i class="fa-brands fa-whatsapp"></i> Contatar
-                        </a>
+                        </button>
                     </div>
-                `).join('');
+                `;}).join('');
         }
 
         function filterAnnouncements() { renderAnnouncements(); }
@@ -601,14 +622,14 @@
         function finishCadastroAndNotify() {
             if (!activeCadastro) return;
             
-            // Exibe a barra de status de pagamento confirmado/ativo para o cliente
             document.getElementById('client-status-banner').classList.remove('hidden');
 
-            const msg = encodeURIComponent(`🔥 *NOVO PIX REALIZADO NO VITRINE LOCAL!*\n\n*Estabelecimento:* ${activeCadastro.name}\n*Plano:* ${activeCadastro.plan.toUpperCase()}\n*Local:* ${activeCadastro.city}/${activeCadastro.state}\n*Tel:* ${activeCadastro.phone}\n\nO anúncio já está no ar com as fotos da loja e propaganda! Segue meu comprovante de pagamento.`);
-            window.open(`https://wa.me/${settings.adminWhatsApp}?text=${msg}`, '_blank');
+            const msg = `🔥 *NOVO PIX REALIZADO NO VITRINE LOCAL!*\n\n*Estabelecimento:* ${activeCadastro.name}\n*Plano:* ${activeCadastro.plan.toUpperCase()}\n*Local:* ${activeCadastro.city}/${activeCadastro.state}\n*Tel:* ${activeCadastro.phone}\n\nO anúncio já está no ar com as fotos da loja e propaganda! Segue meu comprovante de pagamento.`;
+            
+            openWhatsApp(settings.adminWhatsApp, msg);
 
             closeModal('modal-pix');
-            alert('Parabéns! Seu anúncio já está ativo e visível na vitrine!');
+            alert('Excelente! Seu anúncio já está ativo e visível na vitrine!');
             document.getElementById('form-cadastro').reset();
             activeCadastro = null;
         }
