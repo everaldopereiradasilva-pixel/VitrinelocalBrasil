@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vitrine Local Brasil</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA Web App Manifest dinâmico -->
+    <script>
+        const manifestData = {
+            "name": "Vitrine Local Brasil",
+            "short_name": "VitrineLocal",
+            "start_url": "./",
+            "display": "standalone",
+            "background_color": "#0f172a",
+            "theme_color": "#2563eb",
+            "icons": [{
+                "src": "https://cdn-icons-png.flaticon.com/512/1261/1261163.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestURL;
+        document.head.appendChild(link);
+    </script>
+    
+    <style>
+        .badge-destaque {
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans pb-16">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <!-- Logo e Título -->
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-store text-blue-500 text-2xl"></i>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
+                    Vitrine Local Brasil
+                </h1>
+            </div>
+
+            <!-- Filtro de Estado e Cidade Rápido -->
+            <div class="flex items-center gap-2">
+                <select id="filter-state" onchange="filterAnnouncements()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    <option value="">Todos os Estados</option>
+                    <option value="SP">São Paulo (SP)</option>
+                    <option value="RJ">Rio de Janeiro (RJ)</option>
+                    <option value="MG">Minas Gerais (MG)</option>
+                    <option value="PR">Paraná (PR)</option>
+                    <option value="SC">Santa Catarina (SC)</option>
+                    <option value="RS">Rio Grande do Sul (RS)</option>
+                    <option value="BA">Bahia (BA)</option>
+                    <option value="GO">Goiás (GO)</option>
+                    <option value="OUTRO">Outros Estados</option>
+                </select>
+                <input type="text" id="filter-city-input" oninput="filterAnnouncements()" placeholder="Filtrar cidade..." 
+                       class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 w-32 sm:w-40">
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="flex items-center space-x-2">
+                <button id="install-pwa-btn" onclick="installApp()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1">
+                    <i class="fa-solid fa-download"></i> Instalar App
+                </button>
+                <button onclick="openModal('modal-cadastrar')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Anunciar
+                </button>
+            </div>
+        </div>
+
+        <!-- Barra de Categoria e Pesquisa -->
+        <div class="max-w-6xl mx-auto px-4 py-2 border-t border-slate-700/50 flex flex-col sm:flex-row gap-2">
+            <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
+                <input type="text" id="search-input" oninput="filterAnnouncements()" placeholder="Buscar estabelecimento, serviço ou produto..." 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-1.5 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500">
+            </div>
+            <select id="category-filter" onchange="filterAnnouncements()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                <option value="">Todas as Categorias</option>
+                <option value="Alimentação">Alimentação / Bares / Restaurantes</option>
+                <option value="Serviços">Serviços Profissionais / Reparos</option>
+                <option value="Comércio">Comércio / Lojas</option>
+                <option value="Saúde">Saúde & Beleza</option>
+                <option value="Veículos">Oficina & Veículos</option>
+                <option value="Outros">Outros</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- BARRA DE STATUS DE PAGAMENTO PARA O CLIENTE -->
+    <div id="client-status-banner" class="hidden bg-emerald-900/90 border-b border-emerald-600 px-4 py-2 text-center text-xs text-emerald-100 flex items-center justify-center gap-2 sticky top-[105px] z-30 shadow-md">
+        <i class="fa-solid fa-circle-check text-emerald-400 animate-pulse text-sm"></i>
+        <span><strong>Status do seu Anúncio:</strong> Ativo na vitrine por 30 dias! Aguardando confirmação do Pix enviado pelo WhatsApp.</span>
+        <button onclick="document.getElementById('client-status-banner').classList.add('hidden')" class="ml-3 text-emerald-300 hover:text-white font-bold">&times;</button>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+        <div class="mb-6 flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-globe text-blue-500"></i> Vitrine de Comércios do Brasil
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Encontre os melhores negócios de qualquer cidade</p>
+            </div>
+            <span id="counter-badge" class="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded-full border border-slate-700">
+                0 Anúncios
+            </span>
+        </div>
+
+        <!-- Seção 1: Destaque -->
+        <section class="mb-8">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-star"></i> Anúncios em Destaque Nacional
+            </h3>
+            <div id="container-destaque" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- Seção 2: Geral -->
+        <section>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-list"></i> Demais Anúncios Ativos
+            </h3>
+            <div id="container-geral" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+    </main>
+
+    <!-- MODAL DE ZOOM DE IMAGEM -->
+    <div id="modal-zoom" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-2" onclick="closeZoom()">
+        <div class="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+            <button onclick="closeZoom()" class="absolute -top-10 right-0 text-white text-2xl hover:text-red-400 p-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="zoom-img-src" src="" class="max-w-full max-h-[80vh] object-contain rounded-lg border border-slate-700 shadow-2xl cursor-zoom-out" onclick="closeZoom()">
+            <p class="text-xs text-slate-400 mt-2">Clique na imagem para fechar</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 border-t border-slate-700 py-6 mt-12 text-center text-xs text-slate-400">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <p>© 2026 Vitrine Local Brasil - Conectando Negócios</p>
+            <div class="flex items-center space-x-4">
+                <button onclick="openAdminModal()" class="text-slate-400 hover:text-blue-400 flex items-center gap-1">
+                    <i class="fa-solid fa-lock"></i> Painel Admin
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL 1: Formulário de Cadastro com 2 Fotos -->
+    <div id="modal-cadastrar" class="fixed inset-0 bg-black/85 z-50 hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 max-w-lg w-full p-4 sm:p-6 relative my-auto max-h-[90vh] overflow-y-auto shadow-2xl">
+            <button onclick="closeModal('modal-cadastrar')" class="absolute top-3 right-3 text-slate-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            
+            <h3 class="text-lg sm:text-xl font-bold text-white mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-bullhorn text-blue-500"></i> Cadastrar seu Comércio
+            </h3>
+            <p class="text-xs text-slate-400 mb-3">Preencha os dados e adicione as fotos do seu visual e propaganda.</p>
+
+            <form id="form-cadastro" onsubmit="submitCadastro(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Escolha o Plano:</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="plan" value="basico" class="peer hidden" checked>
+                            <div class="border border-slate-700 rounded-lg p-2 text-center peer-checked:border-blue-500 peer-checked:bg-blue-950/40 transition">
+                                <div class="text-[11px] font-bold text-white">Básico</div>
+                                <div class="text-[10px] text-blue-400 font-bold mt-0.5">R$ 30 (30d)</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="plan" value="popular" class="peer hidden">
+                            <div class="border border-slate-700 rounded-lg p-2 text-center peer-checked:border-blue-500 peer-checked:bg-blue-950/40 transition">
+                                <div class="text-[11px] font-bold text-white">Popular</div>
+                                <div class="text-[10px] text-blue-400 font-bold mt-0.5">R$ 100 (30d)</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="plan" value="destaque" class="peer hidden">
+                            <div class="border border-slate-700 rounded-lg p-2 text-center peer-checked:border-amber-500 peer-checked:bg-amber-950/40 transition">
+                                <div class="text-[11px] font-bold text-amber-400">Destaque ⭐</div>
+                                <div class="text-[10px] text-amber-400 font-bold mt-0.5">R$ 150 (30d)</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Estado (UF):</label>
+                        <select id="cad-state" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="SP">São Paulo (SP)</option>
+                            <option value="RJ">Rio de Janeiro (RJ)</option>
+                            <option value="MG">Minas Gerais (MG)</option>
+                            <option value="PR">Paraná (PR)</option>
+                            <option value="SC">Santa Catarina (SC)</option>
+                            <option value="RS">Rio Grande do Sul (RS)</option>
+                            <option value="BA">Bahia (BA)</option>
+                            <option value="GO">Goiás (GO)</option>
+                            <option value="OUTRO">Outro Estado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Cidade:</label>
+                        <input type="text" id="cad-city" required placeholder="Ex: Hortolândia" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Nome do Estabelecimento:</label>
+                    <input type="text" id="cad-name" required placeholder="Ex: Loja Central" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Categoria:</label>
+                        <select id="cad-category" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="Alimentação">Alimentação</option>
+                            <option value="Serviços">Serviços / Reparos</option>
+                            <option value="Comércio">Comércio / Lojas</option>
+                            <option value="Saúde">Saúde & Beleza</option>
+                            <option value="Veículos">Oficina / Veículos</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">WhatsApp (com DDD):</label>
+                        <input type="tel" id="cad-phone" required placeholder="19999999999" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Endereço / Bairro:</label>
+                    <input type="text" id="cad-address" required placeholder="Ex: Rua Principal, 100" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                </div>
+
+                <!-- FOTO 1: VISUAL DA LOJA -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                        <i class="fa-solid fa-store text-blue-400"></i> Foto 1 (Visual da Loja / Fachada):
+                    </label>
+                    <input type="file" id="cad-image1-file" accept="image/*" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
+                </div>
+
+                <!-- FOTO 2: PROPAGANDA / BANNER -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">
+                        <i class="fa-solid fa-image text-amber-400"></i> Foto 2 (Propaganda / Banner / Cardápio):
+                    </label>
+                    <input type="file" id="cad-image2-file" accept="image/*" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Descrição do Negócio:</label>
+                    <textarea id="cad-desc" rows="2" required placeholder="Resumo dos seus serviços..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-lg text-xs sm:text-sm transition mt-2">
+                    Ir para Pagamento Pix <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Checkout Pix -->
+    <div id="modal-pix" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 max-w-md w-full p-6 relative text-center">
+            <button onclick="closeModal('modal-pix')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <div class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-brands fa-pix"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-white">Pagamento por Pix</h3>
+            <p class="text-xs text-slate-400 mt-1">Copie a chave abaixo para realizar o Pix. Seu anúncio já entrou no ar!</p>
+
+            <div class="bg-slate-900 p-4 rounded-lg border border-slate-700 my-4 text-left">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Plano:</span>
+                    <span id="pix-plan-name" class="font-bold text-white">Básico</span>
+                </div>
+                <div class="flex justify-between text-sm font-bold text-white mb-3">
+                    <span>Valor:</span>
+                    <span id="pix-plan-price" class="text-emerald-400">R$ 30,00</span>
+                </div>
+                <div class="border-t border-slate-800 pt-3">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Chave Pix Copia e Cola:</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="pix-key-input" readonly class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 font-mono">
+                        <button onclick="copyPixKey()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 rounded font-medium transition">Copiar</button>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="finishCadastroAndNotify()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                <i class="fa-brands fa-whatsapp text-lg"></i> Enviar Comprovante no WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Painel Administrativo -->
+    <div id="modal-admin" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 max-w-3xl w-full p-6 relative my-8">
+            <button onclick="closeModal('modal-admin')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <!-- Login View -->
+            <div id="admin-login-view">
+                <h3 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield text-blue-500"></i> Painel do Administrador
+                </h3>
+                <p class="text-xs text-slate-400 mb-4">Insira a senha master para gerenciar anúncios.</p>
+                
+                <form onsubmit="loginAdmin(event)" class="space-y-4 max-w-xs">
+                    <div>
+                        <input type="password" id="admin-pass-input" placeholder="Senha master" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200">
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition">Entrar</button>
+                </form>
+            </div>
+
+            <!-- Dashboard View -->
+            <div id="admin-dashboard-view" class="hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-500"></i> Gestão de Anúncios Ativos Nacional
+                    </h3>
+                    <button onclick="logoutAdmin()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-slate-300">Sair</button>
+                </div>
+
+                <div class="bg-slate-900 p-4 rounded-lg border border-slate-700 mb-6">
+                    <h4 class="text-xs font-bold uppercase text-slate-400 mb-2">Chave Pix de Recebimento</h4>
+                    <div class="flex gap-2">
+                        <input type="text" id="admin-pix-key" class="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-xs text-slate-200">
+                        <button onclick="saveSettings()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-1.5 rounded font-medium">Salvar</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-bold text-emerald-400 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check"></i> Anúncios no Ar (Remova se não houver confirmação de Pix)
+                    </h4>
+                    <div id="admin-active-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT ENGINE -->
+    <script>
+        let announcements = [];
+        let settings = {
+            pixKey: 'pix@vitrinelocalbrasil.com.br',
+            adminPass: 'Everaldo43991985',
+            adminWhatsApp: '5519999999999' // <-- SEU WHATSAPP AQUI (ex: 5519988887777)
+        };
+        let activeCadastro = null;
+        let deferredPrompt = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStorage();
+            renderAnnouncements();
+            setupPWA();
+        });
+
+        function setupPWA() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                const btn = document.getElementById('install-pwa-btn');
+                if (btn) btn.classList.remove('hidden');
+            });
+        }
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+            }
+        }
+
+        function loadStorage() {
+            const saved = localStorage.getItem('vitrine_brasil_announcements');
+            if (saved) {
+                announcements = JSON.parse(saved);
+            } else {
+                announcements = [
+                    {
+                        id: 1,
+                        name: "Pizzaria Central",
+                        state: "SP",
+                        city: "Hortolândia",
+                        category: "Alimentação",
+                        plan: "destaque",
+                        phone: "19988776655",
+                        address: "Av. Principal, 100",
+                        description: "A melhor pizza da cidade com entrega rápida.",
+                        image1Url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+                        image2Url: "",
+                        expiresAt: new Date(Date.now() + 30*24*60*60*1000).toISOString()
+                    }
+                ];
+                saveAnnouncements();
+            }
+            const set = localStorage.getItem('vitrine_brasil_settings');
+            if (set) settings = JSON.parse(set);
+        }
+
+        function saveAnnouncements() {
+            localStorage.setItem('vitrine_brasil_announcements', JSON.stringify(announcements));
+        }
+
+        // Função de Zoom de Imagem
+        function openZoom(imgUrl) {
+            if (!imgUrl) return;
+            document.getElementById('zoom-img-src').src = imgUrl;
+            document.getElementById('modal-zoom').classList.remove('hidden');
+        }
+
+        function closeZoom() {
+            document.getElementById('modal-zoom').classList.add('hidden');
+        }
+
+        function renderAnnouncements() {
+            const stateFilter = document.getElementById('filter-state').value;
+            const cityFilter = document.getElementById('filter-city-input').value.toLowerCase();
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const category = document.getElementById('category-filter').value;
+
+            const now = new Date();
+            announcements = announcements.filter(item => new Date(item.expiresAt) > now);
+            saveAnnouncements();
+
+            const filtered = announcements.filter(item => {
+                const matchState = stateFilter ? item.state === stateFilter : true;
+                const matchCity = cityFilter ? item.city.toLowerCase().includes(cityFilter) : true;
+                const matchCategory = category ? item.category === category : true;
+                const matchSearch = item.name.toLowerCase().includes(search) || item.description.toLowerCase().includes(search);
+                return matchState && matchCity && matchCategory && matchSearch;
+            });
+
+            document.getElementById('counter-badge').innerText = `${filtered.length} No Ar`;
+
+            const destaques = filtered.filter(i => i.plan === 'destaque');
+            const gerais = filtered.filter(i => i.plan !== 'destaque');
+
+            document.getElementById('container-destaque').innerHTML = destaques.length === 0 ? 
+                `<div class="col-span-full bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 text-center text-xs text-slate-400">Nenhum destaque encontrado.</div>` :
+                destaques.map(item => `
+                    <div class="bg-slate-800 rounded-xl border-2 border-amber-500/50 p-4 relative shadow-xl flex flex-col justify-between">
+                        <div>
+                            <div class="absolute top-0 right-0 badge-destaque text-slate-950 font-bold text-[10px] uppercase px-3 py-0.5 rounded-bl-lg tracking-wider flex items-center gap-1 z-10">
+                                <i class="fa-solid fa-crown"></i> VIP Destaque
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                ${item.image1Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image1Url}')"><span class="text-[9px] text-slate-400 block mb-1 group-hover:text-blue-400 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Visual da Loja (Zoom)</span><img src="${item.image1Url}" class="w-full h-32 object-cover rounded-lg border border-slate-700 group-hover:border-blue-500 transition"></div>` : ''}
+                                ${item.image2Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image2Url}')"><span class="text-[9px] text-amber-400 block mb-1 group-hover:text-amber-300 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Propaganda (Zoom)</span><img src="${item.image2Url}" class="w-full h-32 object-cover rounded-lg border border-slate-700 group-hover:border-amber-500 transition"></div>` : ''}
+                            </div>
+
+                            <span class="text-[10px] uppercase text-amber-400 font-bold bg-amber-950/60 px-2 py-0.5 rounded">${item.category} • ${item.city}/${item.state}</span>
+                            <h4 class="text-lg font-bold text-white mt-1.5">${item.name}</h4>
+                            <p class="text-xs text-slate-400"><i class="fa-solid fa-location-dot"></i> ${item.address}</p>
+                            <p class="text-xs text-slate-300 my-2">${item.description}</p>
+                        </div>
+                        <a href="https://wa.me/55${item.phone.replace(/\D/g,'')}?text=Olá,%20vi%20seu%20anúncio%20no%20Vitrine%20Local!" target="_blank" 
+                           class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 mt-3 transition">
+                            <i class="fa-brands fa-whatsapp text-sm"></i> Chamar no WhatsApp
+                        </a>
+                    </div>
+                `).join('');
+
+            document.getElementById('container-geral').innerHTML = gerais.length === 0 ? 
+                `<div class="col-span-full bg-slate-800/40 border border-slate-700/50 rounded-xl p-8 text-center text-xs text-slate-400">Nenhum anúncio encontrado.</div>` :
+                gerais.map(item => `
+                    <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col justify-between">
+                        <div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                ${item.image1Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image1Url}')"><span class="text-[9px] text-slate-400 block mb-1 group-hover:text-blue-400 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Loja (Zoom)</span><img src="${item.image1Url}" class="w-full h-24 object-cover rounded-lg border border-slate-700 group-hover:border-blue-500 transition"></div>` : ''}
+                                ${item.image2Url ? `<div class="cursor-pointer group" onclick="openZoom('${item.image2Url}')"><span class="text-[9px] text-blue-400 block mb-1 group-hover:text-blue-300 transition"><i class="fa-solid fa-magnifying-glass-plus"></i> Propaganda (Zoom)</span><img src="${item.image2Url}" class="w-full h-24 object-cover rounded-lg border border-slate-700 group-hover:border-blue-500 transition"></div>` : ''}
+                            </div>
+
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-[10px] uppercase font-semibold text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded">${item.category}</span>
+                                <span class="text-[10px] text-slate-400">${item.city}/${item.state}</span>
+                            </div>
+                            <h4 class="text-sm font-bold text-white">${item.name}</h4>
+                            <p class="text-xs text-slate-400"><i class="fa-solid fa-location-dot"></i> ${item.address}</p>
+                            <p class="text-xs text-slate-300 my-2">${item.description}</p>
+                        </div>
+                        <a href="https://wa.me/55${item.phone.replace(/\D/g,'')}?text=Olá,%20vi%20seu%20anúncio%20no%20Vitrine%20Local!" target="_blank" 
+                           class="w-full bg-slate-700 hover:bg-emerald-600 text-slate-200 hover:text-white font-semibold py-1.5 rounded text-xs flex items-center justify-center gap-1.5 mt-2 transition">
+                            <i class="fa-brands fa-whatsapp"></i> Contatar
+                        </a>
+                    </div>
+                `).join('');
+        }
+
+        function filterAnnouncements() { renderAnnouncements(); }
+
+        function submitCadastro(e) {
+            e.preventDefault();
+            
+            const plan = document.querySelector('input[name="plan"]:checked').value;
+            const state = document.getElementById('cad-state').value;
+            const city = document.getElementById('cad-city').value;
+            const name = document.getElementById('cad-name').value;
+            const category = document.getElementById('cad-category').value;
+            const phone = document.getElementById('cad-phone').value.replace(/\D/g,'');
+            const address = document.getElementById('cad-address').value;
+            const description = document.getElementById('cad-desc').value;
+
+            const image1File = document.getElementById('cad-image1-file').files[0];
+            const image2File = document.getElementById('cad-image2-file').files[0];
+
+            let image1Url = '';
+            let image2Url = '';
+
+            const processFiles = () => {
+                const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+                activeCadastro = {
+                    id: Date.now(),
+                    name,
+                    state,
+                    city,
+                    category,
+                    plan,
+                    phone,
+                    address,
+                    image1Url,
+                    image2Url,
+                    description,
+                    expiresAt
+                };
+
+                announcements.push(activeCadastro);
+                saveAnnouncements();
+                renderAnnouncements();
+
+                closeModal('modal-cadastrar');
+
+                const prices = { basico: 'R$ 30,00', popular: 'R$ 100,00', destaque: 'R$ 150,00' };
+                document.getElementById('pix-plan-name').innerText = plan.toUpperCase();
+                document.getElementById('pix-plan-price').innerText = prices[plan];
+                document.getElementById('pix-key-input').value = settings.pixKey;
+                openModal('modal-pix');
+            };
+
+            if (image1File) {
+                const reader1 = new FileReader();
+                reader1.onload = function(e) {
+                    image1Url = e.target.result;
+                    if (image2File) {
+                        const reader2 = new FileReader();
+                        reader2.onload = function(ev) {
+                            image2Url = ev.target.result;
+                            processFiles();
+                        };
+                        reader2.readAsDataURL(image2File);
+                    } else {
+                        processFiles();
+                    }
+                };
+                reader1.readAsDataURL(image1File);
+            } else if (image2File) {
+                const reader2 = new FileReader();
+                reader2.onload = function(ev) {
+                    image2Url = ev.target.result;
+                    processFiles();
+                };
+                reader2.readAsDataURL(image2File);
+            } else {
+                processFiles();
+            }
+        }
+
+        function copyPixKey() {
+            navigator.clipboard.writeText(settings.pixKey);
+            alert('Chave Pix copiada para a área de transferência!');
+        }
+
+        function finishCadastroAndNotify() {
+            if (!activeCadastro) return;
+            
+            // Exibe a barra de status de pagamento confirmado/ativo para o cliente
+            document.getElementById('client-status-banner').classList.remove('hidden');
+
+            const msg = encodeURIComponent(`🔥 *NOVO PIX REALIZADO NO VITRINE LOCAL!*\n\n*Estabelecimento:* ${activeCadastro.name}\n*Plano:* ${activeCadastro.plan.toUpperCase()}\n*Local:* ${activeCadastro.city}/${activeCadastro.state}\n*Tel:* ${activeCadastro.phone}\n\nO anúncio já está no ar com as fotos da loja e propaganda! Segue meu comprovante de pagamento.`);
+            window.open(`https://wa.me/${settings.adminWhatsApp}?text=${msg}`, '_blank');
+
+            closeModal('modal-pix');
+            alert('Parabéns! Seu anúncio já está ativo e visível na vitrine!');
+            document.getElementById('form-cadastro').reset();
+            activeCadastro = null;
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function openAdminModal() {
+            document.getElementById('admin-login-view').classList.remove('hidden');
+            document.getElementById('admin-dashboard-view').classList.add('hidden');
+            openModal('modal-admin');
+        }
+
+        function loginAdmin(e) {
+            e.preventDefault();
+            if (document.getElementById('admin-pass-input').value === settings.adminPass) {
+                document.getElementById('admin-login-view').classList.add('hidden');
+                document.getElementById('admin-dashboard-view').classList.remove('hidden');
+                document.getElementById('admin-pix-key').value = settings.pixKey;
+                renderAdminList();
+            } else {
+                alert('Senha incorreta!');
+            }
+        }
+
+        function logoutAdmin() { closeModal('modal-admin'); }
+
+        function saveSettings() {
+            settings.pixKey = document.getElementById('admin-pix-key').value;
+            localStorage.setItem('vitrine_brasil_settings', JSON.stringify(settings));
+            alert('Chave Pix atualizada com sucesso!');
+        }
+
+        function renderAdminList() {
+            document.getElementById('admin-active-list').innerHTML = announcements.map(i => `
+                <div class="bg-slate-900 p-3 rounded border border-slate-700 flex justify-between items-center gap-2">
+                    <div>
+                        <div class="text-xs font-bold text-white">${i.name} <span class="text-blue-400">(${i.plan})</span></div>
+                        <div class="text-[11px] text-slate-400">${i.city}/${i.state} - Expira em: ${new Date(i.expiresAt).toLocaleDateString()}</div>
+                    </div>
+                    <button onclick="removeAdminItem(${i.id})" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 rounded">Remover</button>
+                </div>
+            `).join('');
+        }
+
+        function removeAdminItem(id) {
+            if (confirm('Deseja realmente remover este anúncio?')) {
+                announcements = announcements.filter(i => i.id !== id);
+                saveAnnouncements();
+                renderAdminList();
+                renderAnnouncements();
+            }
+        }
+    </script>
+</body>
+</html>
